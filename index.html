@@ -38,11 +38,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <body>
 <main>
   <h1>🎡 Image Roulette</h1>
-  <p class="sub">I-spin ang wheel, tapos piliin kung ide-delete o ililigtas ang lalabas.</p>
+  <p></p>
   <div class="wrap"><div class="pointer"></div><canvas id="c" width="900" height="900"></canvas></div>
   <div class="row"><button class="primary" id="spin">SPIN!</button></div>
   <div class="row">
-    <button id="addBtn" type="button">➕ Mag-add ng images</button>
+    <button id="addBtn" type="button">➕ Add images</button>
     <input id="file" type="file" accept="image/*" multiple>
     <button id="deleteAll" type="button">🗑 Delete all images</button>
   </div>
@@ -53,7 +53,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="modal" id="modal">
   <div class="box">
-    <h2>Ito ang natapat! <span id="winTitle"></span></h2>
+    <h2>dapat na buhaton! <span id="winTitle"></span></h2>
     <img id="win" alt="Natapat na image">
     <div class="row">
       <button class="danger" id="del">🗑 Delete</button>
