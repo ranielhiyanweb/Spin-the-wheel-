@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Image Roulette</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--text:#1d1b18;--muted:#6b665e;--accent:#e4572e;--line:#ddd8cc;--danger:#c62828;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17161a;--card:#232228;--text:#f1eee8;--muted:#a19cab;--line:#38363f}}
+:root[data-theme="dark"]{--bg:#17161a;--card:#232228;--text:#f1eee8;--muted:#a19cab;--line:#38363f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px;text-align:center}
+h1{font-size:1.6rem;margin:8px 0 4px}
+p.sub{color:var(--muted);margin:0 0 16px;font-size:.95rem}
+.wrap{position:relative;width:min(100%,460px);margin:0 auto}
+canvas{width:100%;height:auto;aspect-ratio:1;display:block}
+.pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--accent);filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));z-index:2}
+button,.btn{font:inherit;border:0;border-radius:10px;padding:12px 20px;cursor:pointer;background:var(--card);color:var(--text);border:1px solid var(--line)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;font-size:1.1rem;padding:14px 38px}
+button.danger{background:var(--danger);color:#fff;border-color:var(--danger);font-weight:600}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+.count{color:var(--muted);font-size:.9rem}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;margin-top:14px}
+.thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal.show{display:flex}
+.box{background:var(--card);border-radius:16px;padding:18px;max-width:380px;width:100%}
+.box img{width:100%;max-height:55vh;object-fit:contain;border-radius:10px;background:var(--bg)}
+.box h2{margin:0 0 12px;font-size:1.2rem}
+.box .row{margin-bottom:0}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>🎡 Image Roulette</h1>
+  <p class="sub">Mag-upload ng images, i-spin, at piliin kung ide-delete o ililigtas ang lalabas.</p>
+  <div class="wrap"><div class="pointer"></div><canvas id="c" width="900" height="900"></canvas></div>
+  <div class="row"><button class="primary" id="spin">SPIN!</button></div>
+  <div class="row">
+    <label class="btn" for="file">➕ Mag-add ng images</label>
+    <input id="file" type="file" accept="image/*" multiple>
+    <button id="clear">Burahin lahat</button>
+  </div>
+  <div class="count" id="count"></div>
+  <div class="thumbs" id="thumbs"></div>
+</main>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h2>Ito ang natapat!</h2>
+    <img id="win" alt="Natapat na image">
+    <div class="row">
+      <button class="danger" id="del">🗑 Delete</button>
+      <button id="keep">Keep</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+  var items=[],rotation=0,spinning=false,winner=-1;
+  var COLORS=['#e4572e','#29b6f6','#7cb518','#f2b705','#8e44ad','#16a085','#ec407a','#5c6bc0'];
+
+  function sample(n,i){
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="'+COLORS[i%COLORS.length]+'"/><text x="150" y="190" font-size="140" font-family="sans-serif" font-weight="700" fill="#fff" text-anchor="middle">'+n+'</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  }
+  function addSrc(src,cb){
+    var img=new Image();
+    img.onload=function(){items.push({src:src,img:img});if(cb)cb();};
+    img.src=src;
+  }
+  function init(){
+    var done=0;
+    for(var i=1;i<=6;i++)addSrc(sample(i,i-1),function(){if(++done===6)refresh();});
+  }
+  function refresh(){
+    draw();
+    document.getElementById('count').textContent=items.length+' image'+(items.length===1?'':'s')+' sa wheel';
+    document.getElementById('spin').disabled=items.length<1||spinning;
+    var t=document.getElementById('thumbs');t.innerHTML='';
+    items.forEach(function(it){var im=document.createElement('img');im.src=it.src;im.alt='';t.appendChild(im);});
+  }
+  function draw(){
+    var W=canvas.width,R=W/2-8,n=items.length;
+    ctx.clearRect(0,0,W,W);
+    ctx.save();ctx.translate(W/2,W/2);
+    if(!n){
+      ctx.fillStyle='#999';ctx.font='42px sans-serif';ctx.textAlign='center';
+      ctx.fillText('Walang image. Mag-add!',0,0);ctx.restore();return;
+    }
+    var s=2*Math.PI/n;
+    for(var i=0;i<n;i++){
+      var a0=rotation+i*s,mid=a0+s/2;
+      ctx.save();
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,R,a0,a0+s);ctx.closePath();
+      ctx.fillStyle=COLORS[i%COLORS.length];ctx.fill();ctx.clip();
+      ctx.rotate(mid);
+      var h=s>=Math.PI?2*R:Math.min(2*R,2*R*Math.tan(s/2));
+      var im=items[i].img,iw=im.naturalWidth||1,ih=im.naturalHeight||1;
+      var sc=Math.max(R/iw,h/ih),dw=iw*sc,dh=ih*sc;
+      ctx.drawImage(im,R/2-dw/2,-dh/2,dw,dh);
+      ctx.restore();
+      ctx.save();ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a0)*R,Math.sin(a0)*R);
+      ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.stroke();ctx.restore();
+    }
+    ctx.beginPath();ctx.arc(0,0,R,0,2*Math.PI);ctx.strokeStyle='#fff';ctx.lineWidth=8;ctx.stroke();
+    ctx.beginPath();ctx.arc(0,0,26,0,2*Math.PI);ctx.fillStyle='#fff';ctx.fill();
+    ctx.restore();
+  }
+  function mod(a,b){return((a%b)+b)%b;}
+  function spin(){
+    if(spinning||!items.length)return;
+    spinning=true;document.getElementById('spin').disabled=true;
+    var start=rotation,total=Math.PI*2*(5+Math.random()*3)+Math.random()*Math.PI*2;
+    var dur=5000,t0=performance.now();
+    function step(now){
+      var p=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-p,4);
+      rotation=start+total*e;draw();
+      if(p<1)requestAnimationFrame(step);else finish();
+    }
+    requestAnimationFrame(step);
+  }
+  function finish(){
+    spinning=false;
+    var n=items.length,s=2*Math.PI/n;
+    winner=Math.floor(mod(1.5*Math.PI-rotation,2*Math.PI)/s)%n;
+    document.getElementById('win').src=items[winner].src;
+    document.getElementById('modal').classList.add('show');
+  }
+  function closeModal(){document.getElementById('modal').classList.remove('show');refresh();}
+
+  document.getElementById('spin').onclick=spin;
+  document.getElementById('keep').onclick=closeModal;
+  document.getElementById('del').onclick=function(){
+    if(winner>=0){items.splice(winner,1);winner=-1;}
+    closeModal();
+  };
+  document.getElementById('clear').onclick=function(){
+    if(spinning)return;
+    if(confirm('Burahin lahat ng images?')){items=[];refresh();}
+  };
+  document.getElementById('file').onchange=function(e){
+    var files=Array.prototype.slice.call(e.target.files);
+    var left=files.length;if(!left)return;
+    files.forEach(function(f){
+      var r=new FileReader();
+      r.onload=function(){addSrc(r.result,function(){if(--left===0)refresh();});};
+      r.onerror=function(){if(--left===0)refresh();};
+      r.readAsDataURL(f);
+    });
+    e.target.value='';
+  };
+  init();
+})();
+</script>
+</body>
+</html>
